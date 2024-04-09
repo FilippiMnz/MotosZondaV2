@@ -1,36 +1,34 @@
 #include <stdio.h>
 #include "motos_zonda.h"
-#include <time.h>
-
 int main() {
     int Opcao;
+    CarregarServicosNaoConcluidos();
     do {
         printf("\n\n >>> Motos Zonda <<< \n\n");
         printf("1 - Solicitar Servico\n");
-        printf("2 - Carregar Servicos Nao Concluidos\n");
-        printf("3 - Iniciar Servico\n");
-        printf("4 - Remover Solicitacao\n");
-        printf("5 - Consultar Solicitacoes\n");
-        printf("6 - Concluir Servico\n");
-        printf("7 - Encerrar Expediente\n");
-        printf("8 - Exibir Historico Financeiro\n");
-        printf("9 - Sair\n");
+        printf("2 - Iniciar Servico\n");
+        printf("3 - Remover Solicitacao\n");
+        printf("4 - Consultar Solicitacoes\n");
+        printf("5 - Concluir Servico\n");
+        printf("6 - Encerrar Expediente\n");
+        printf("7 - Exibir Historico Financeiro\n");
+        printf("8 - Sair\n");
         printf("Digite a opcao desejada: ");
         scanf("%d", &Opcao);
 
         switch (Opcao) {
             case 1: SolicitaServico(); break;
-            case 2: CarregarServicosNaoConcluidos(); break;
-            case 3: IniciaServico(); break;
-            case 4: RemoverSolicitacao(); break;
-            case 5: ConsultarSolicitacoes(); break;
-            case 6: ConcluirServico(); break;
-            case 7: EncerrarExpediente(); break;
-            case 8: ExibirHistoricoFinanceiro(); break;
-            case 9: LimparVzondaInicio(); break;
+            case 2: IniciaServico(); break;
+            case 3: RemoverSolicitacao(); break;
+            case 4: ConsultarSolicitacoes(); break;
+            case 5: ConcluirServico(); break;
+            case 6: EncerrarExpediente(); break;
+            case 7: ExibirHistoricoFinanceiro(); break;
+            case 8: break;
+            case 9: VisualizarRegistrosServicos();break;
             default: printf("Opcao invalida.\n"); break;
         }
-    } while (Opcao != 9);
+    } while (Opcao != 8);
 
 
     return 0;

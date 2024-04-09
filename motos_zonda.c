@@ -1,8 +1,4 @@
 #include "motos_zonda.h"
-#include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
-#include <time.h>
 
 // Definindo variáveis globais
 #define MAX_SERVICOS 100
@@ -11,7 +7,7 @@ float PrecoServicos[50] = {0};
 int QuantidadeServicosConcluidos = 0;
 int Quant= -1;
 
-
+//pegar a data atual do sistema do usuario
 void ObterDataAtual(char *data) {
     time_t tempo_atual;
     struct tm *info_tempo;
@@ -27,8 +23,22 @@ void SalvarServicoNaoConcluido(TpRegMoto servico) {
         printf("Erro ao abrir o arquivo ServicosNaoConcluidos.dat.\n");
         exit(1);
     }
+
+    //guardar todos os registros dentro de um novo arquivo auxiliar
+    FILE *registrosFile = fopen("RegistrosServicos.dat", "wb");
+    if(registrosFile == NULL) {
+        printf("Erro ao abrir o arquivo RegistrosServicos.dat.\n");
+        fclose(registrosFile);
+        return;
+    }
+
     fwrite(&servico, sizeof(TpRegMoto), 1, arquivo);
+    fwrite(&servico, sizeof(TpRegMoto), 1, registrosFile);
+
+
+    fclose(registrosFile);
     fclose(arquivo);
+
 }
 
 // Implementação das funções
@@ -45,6 +55,7 @@ void SolicitaServico() {
 
     system("cls");
     char Sair = 'S';
+    char dataDia[11];
     do {
         Quant = Quant + 1;
         LimparBuffer();
@@ -71,8 +82,6 @@ void SolicitaServico() {
         fgets(VZonda[Quant].Defeito, sizeof(VZonda[Quant].Defeito), stdin);
         strtok(VZonda[Quant].Defeito, "\n");
 
-        // Preencher o campo de Data
-        ObterDataAtual(VZonda[Quant].Data);
 
         VZonda[Quant].Status = '0';
         VZonda[Quant].Preco = 0;
@@ -125,33 +134,41 @@ void IniciaServico() {
     TpRegMoto servico;
 
     char placa[8];
-    printf("Digite a placa da moto a ser iniciado o servico: ");
-    scanf("%s", placa);
+    char continuar;
 
-    // Procurar a moto pelo código (placa) no arquivo
-    rewind(arquivo); // Voltar para o início do arquivo
-    while (fread(&servico, sizeof(TpRegMoto), 1, arquivo) == 1) {
-        if (strcmp(servico.Placa, placa) == 0) {
-            // Modificar o status para '1' (serviço iniciado)
-            servico.Status = '1';
-            // Retornar o ponteiro do arquivo para o início do registro atual
-            fseek(arquivo, -sizeof(TpRegMoto), SEEK_CUR);
+    do {
+        printf("Digite a placa da moto a ser iniciado o servico: ");
+        scanf("%s", placa);
 
-            // Reescrever o registro atualizado no arquivo
-            fwrite(&servico, sizeof(TpRegMoto), 1, arquivo);
+        // Procurar a moto pelo código (placa) no arquivo
+        rewind(arquivo); // Voltar para o início do arquivo
+        int encontrada = 0;
+        while (fread(&servico, sizeof(TpRegMoto), 1, arquivo) == 1) {
+            if (strcmp(servico.Placa, placa) == 0) {
+                // Modificar o status para '1' (serviço iniciado)
+                servico.Status = '1';
+                // Retornar o ponteiro do arquivo para o início do registro atual
+                fseek(arquivo, -sizeof(TpRegMoto), SEEK_CUR);
 
-            printf("Servico iniciado com sucesso.\n");
-            break; // Parar de procurar depois de encontrar a moto
+                // Reescrever o registro atualizado no arquivo
+                fwrite(&servico, sizeof(TpRegMoto), 1, arquivo);
+
+                printf("Servico iniciado com sucesso.\n");
+                encontrada = 1;
+                break; // Parar de procurar depois de encontrar a moto
+            }
         }
-    }
-    if (feof(arquivo)) {
-        printf("Placa nao encontrada no arquivo VzondaInicio.dat.\n");
-    }
+        if (!encontrada) {
+            printf("Placa nao encontrada no arquivo VzondaInicio.dat.\n");
+        }
+
+        printf("Deseja iniciar outro servico? (S/N): ");
+        scanf(" %c", &continuar);
+    } while (toupper(continuar) == 'S');
 
     // Fechar o arquivo
     fclose(arquivo);
 }
-
 void RemoverSolicitacao() {
     char opcao;
     do {
@@ -217,7 +234,6 @@ void ConsultarSolicitacoes() {
         printf("\n Modelo: %s", servico.Modelo);
         printf("\n Placa: %s", servico.Placa);
         printf("\n Defeito: %s", servico.Defeito);
-        printf("\n Data: %s", servico.Data);
         printf("\n Status: %c", servico.Status);
         if (servico.Preco == 0) {
             printf("\n Preco: 0");
@@ -235,18 +251,18 @@ void ConsultarSolicitacoes() {
 
 
 void CarregarServicosNaoConcluidos() {
-    FILE *arquivoEntrada = fopen("ServicosNaoConcluidos.dat", "rb");
-    FILE *arquivoSaida = fopen("VzondaInicio.dat", "ab");
+    FILE *arquivoEntrada = fopen("ServicosNaoConcluidos.dat", "rb"); // arquivo de entrada é aberto em modo de leitura b
+    FILE *arquivoSaida = fopen("VzondaInicio.dat", "ab");  // arquivo de saida é aberto em anexação binaria
 
+    //verifica se foram abertos corretamente
     if (arquivoEntrada && arquivoSaida) {
-        TpRegMoto servico;
-        int placaJaExistente = 0; // Flag para indicar se a placa já existe no VzondaInicio.dat
+        TpRegMoto servico; //criação da variavel temporaria servico do tipo TpRegMoto
+        int placaJaExistente = 0; //indicar se a placa já existe no VzondaInicio.dat para não ter conflitos
 
         // Verificar se o arquivo ServicosNaoConcluidos.dat está vazio
-        fseek(arquivoEntrada, 0, SEEK_END);
+        fseek(arquivoEntrada, 0, SEEK_END); //posiciona o ponteiro do arquivo de entrada no final do arquivo
         long tamanho = ftell(arquivoEntrada);
         if (tamanho == 0) {
-            printf("O arquivo ServicosNaoConcluidos.dat esta vazio.\n");
             fclose(arquivoEntrada);
             fclose(arquivoSaida);
             return;
@@ -254,7 +270,7 @@ void CarregarServicosNaoConcluidos() {
         rewind(arquivoEntrada);
 
         // Copiar os serviços não concluídos para VzondaInicio.dat, excluindo serviços com placas já existentes
-        while (fread(&servico, sizeof(TpRegMoto), 1, arquivoEntrada)) {
+        while (fread(&servico, sizeof(TpRegMoto), 1, arquivoEntrada)) { //loop para ler cada registro do arquivo de entrada
             fseek(arquivoSaida, 0, SEEK_SET); // Voltar ao início do arquivo de saída para verificar as placas existentes
 
             // Verificar se a placa do serviço já existe no arquivo de saída
@@ -288,90 +304,105 @@ void CarregarServicosNaoConcluidos() {
     }
 }
 void ConcluirServico() {
-    system("cls");
-    char placa[8];
-    printf("Placa da moto para concluir servico: ");
-    scanf(" %[^\n]s", placa);
-    LimparBuffer();
-    int posicao = -1;
+    char continuar;
+    do {
+        system("cls");
+        char placa[8];
+        printf("Placa da moto para concluir servico: ");
+        scanf(" %[^\n]s", placa);
+        LimparBuffer();
+        int posicao = -1;
 
-    // Abrir o arquivo VzondaInicio.dat para leitura e escrita
-    FILE *arquivo = fopen("VzondaInicio.dat", "rb+");
-    if (arquivo == NULL) {
-        printf("Erro ao abrir o arquivo VzondaInicio.dat.\n");
-        return;
-    }
-
-    // Variável para armazenar temporariamente os dados lidos do arquivo
-    TpRegMoto servico;
-
-    // Procurar o serviço pelo código (placa) no arquivo
-    while (fread(&servico, sizeof(TpRegMoto), 1, arquivo) == 1) {
-        if (strcmp(servico.Placa, placa) == 0) {
-            posicao = ftell(arquivo) / sizeof(TpRegMoto) - 1; // Calcula a posição do registro no arquivo
-            break;
+        // Abrir o arquivo VzondaInicio.dat para leitura e escrita
+        FILE *arquivo = fopen("VzondaInicio.dat", "rb+");
+        if (arquivo == NULL) {
+            printf("Erro ao abrir o arquivo VzondaInicio.dat.\n");
+            return;
         }
-    }
 
-    if (posicao == -1) {
-        printf("Moto nao cadastrada!\n");
-    } else {
-        if (servico.Status == '1') {
-            printf("Informe o valor do servico: ");
-            scanf("%f", &servico.Preco);
-            printf("Deseja Aplicar Desconto? S or N: ");
-            char opc;
-            scanf(" %c", &opc);
-            char opcaoDesc = toupper(opc);
-            float valorDesconto;
-            if (opcaoDesc == 'S') {
-                AplicarDesconto(servico.Preco, &valorDesconto);
-                printf("Servico concluido. Preco final com desconto: R$%.2f\n", valorDesconto);
-                servico.Preco = valorDesconto;
-            } else if (opcaoDesc == 'N') {
-                printf("Servico concluido. Preco final: R$ %.2f\n", servico.Preco);
-            } else {
-                printf("Opcao invalida!\n");
-                fclose(arquivo); // Fechar o arquivo antes de retornar
-                return;
+        // Variável para armazenar temporariamente os dados lidos do arquivo
+        TpRegMoto servico;
+
+        // Procurar o serviço pelo código (placa) no arquivo
+        while (fread(&servico, sizeof(TpRegMoto), 1, arquivo) == 1) {
+            if (strcmp(servico.Placa, placa) == 0) {
+                posicao = ftell(arquivo) / sizeof(TpRegMoto) - 1; // Calcula a posição do registro no arquivo
+                break;
             }
-
-            // Atualizar o status do serviço para '3' (concluído)
-            servico.Status = '3';
-
-            // Retornar o ponteiro do arquivo para o início do registro atual
-            fseek(arquivo, posicao * sizeof(TpRegMoto), SEEK_SET);
-
-            // Reescrever o registro atualizado no arquivo
-            fwrite(&servico, sizeof(TpRegMoto), 1, arquivo);
-
-            printf("Servico concluido com sucesso.\n");
-        } else {
-            printf("Nao e possivel concluir o servico.\n");
         }
-    }
 
-    // Fechar o arquivo
-    fclose(arquivo);
+        if (posicao == -1) {
+            printf("Moto nao cadastrada!\n");
+        } else {
+            if (servico.Status == '1') {
+                printf("Informe o valor do servico: ");
+                scanf("%f", &servico.Preco);
+                printf("Deseja Aplicar Desconto? S or N: ");
+                char opc;
+                scanf(" %c", &opc);
+                char opcaoDesc = toupper(opc);
+                float valorDesconto;
+                if (opcaoDesc == 'S') {
+                    AplicarDesconto(servico.Preco, &valorDesconto);
+                    printf("Servico concluido. Preco final com desconto: R$%.2f\n", valorDesconto);
+                    servico.Preco = valorDesconto;
+                } else if (opcaoDesc == 'N') {
+                    printf("Servico concluido. Preco final: R$ %.2f\n", servico.Preco);
+                } else {
+                    printf("Opcao invalida!\n");
+                    fclose(arquivo); // Fechar o arquivo antes de retornar
+                    return;
+                }
 
-    system("pause");
+                // Atualizar o status do serviço para '3' (concluído)
+                servico.Status = '3';
+
+                // Retornar o ponteiro do arquivo para o início do registro atual
+                fseek(arquivo, posicao * sizeof(TpRegMoto), SEEK_SET);
+
+                // Reescrever o registro atualizado no arquivo
+                fwrite(&servico, sizeof(TpRegMoto), 1, arquivo);
+
+                printf("Servico concluido com sucesso.\n");
+            } else {
+                printf("Nao e possivel concluir o servico.\n");
+            }
+        }
+
+        // Fechar o arquivo
+        fclose(arquivo);
+
+        printf("Deseja concluir mais um servico? (S/N): ");
+        scanf(" %c", &continuar);
+        continuar = toupper(continuar);
+    } while (continuar == 'S');
 }
 
 void EncerrarExpediente() {
-    // Abrir o arquivo VzondaInicio.dat para leitura
-    FILE *arquivo = fopen("VzondaInicio.dat", "rb");
-    if (arquivo == NULL) {
-        printf("Erro ao abrir o arquivo VzondaInicio.dat.\n");
-        return;
-    }
 
-    // Abrir o arquivo HistoricoFinanceiroZonda.dat para leitura e escrita
-    FILE *historicoFile = fopen("HistoricoFinanceiroZonda.dat", "rb+");
-    if (historicoFile == NULL) {
-        printf("Erro ao abrir o arquivo HistoricoFinanceiroZonda.dat.\n");
-        fclose(historicoFile); // Fechar o arquivo antes de retornar
-        return;
-    }
+    //Abertura dos Arquivos que serão usados
+            // Abrir o arquivo VzondaInicio.dat para leitura
+            FILE *arquivo = fopen("VzondaInicio.dat", "rb"); //rb r para leitura - read e b para indicar que é um arquivo binario
+            if (arquivo == NULL) {
+                printf("Erro ao abrir o arquivo VzondaInicio.dat.\n");
+                return;
+            }
+
+            // Abrir o arquivo HistoricoFinanceiroZonda.dat para leitura e escrita
+                FILE *historicoFile = fopen("HistoricoFinanceiroZonda.dat", "rb+"); //rb+ abrir para leitura  e escrita no formato binario
+            if (historicoFile == NULL) {
+                printf("Erro ao abrir o arquivo HistoricoFinanceiroZonda.dat.\n");
+                fclose(historicoFile); // Fechar o arquivo antes de retornar
+                return;
+            }
+
+            //guardar todos os registros dentro de um novo arquivo auxiliar
+            FILE *registrosFile = fopen("RegistrosServicos.dat", "wb");
+            if(registrosFile == NULL) {
+                printf("Erro ao abrir o arquivo RegistrosServicos.dat.\n");
+                fclose(registrosFile);
+                return;
+            }
 
     // Variáveis para armazenar o valor total do dia e a data do dia
     float valorTotalDia = 0;
@@ -387,11 +418,13 @@ void EncerrarExpediente() {
             printf("\n Modelo: %s", servico.Modelo);
             printf("\n Placa: %s", servico.Placa);
             printf("\n Defeito: %s", servico.Defeito);
-            printf("\n Data: %s", servico.Data);
             printf("\n Status: %c", servico.Status);
             printf("\n Preco: %.2f", servico.Preco);
             valorTotalDia += servico.Preco;
             printf("\n --------------------- \n\n");
+
+            // Salvar o registro no arquivo RegistrosServicos.dat
+            fwrite(&servico, sizeof(TpRegMoto), 1, registrosFile);
         } else if (servico.Status == '0' || servico.Status == '1') {
             // Salvar apenas os serviços com status = 0 ou 1
             SalvarServicoNaoConcluido(servico);
@@ -409,6 +442,7 @@ void EncerrarExpediente() {
     } else {
         // Obter a data do dia atual e armazenar em dataDia
         ObterDataAtual(dataDia);
+        printf("Compra finalizada no dia %s", dataDia);
     }
 
     // Verificar se a data já existe no arquivo HistoricoFinanceiroZonda.dat
@@ -438,14 +472,14 @@ void EncerrarExpediente() {
 
     printf("\nValor total obtido: %.2f\n", valorTotalDia);
     system("pause");
-    LimparVzondaInicio();
+    LimparArquivo("VzondaInicio.dat");
 }
 //Fazer a limpeza do VzondaInicio
-void LimparVzondaInicio() {
-    // Abrir o arquivo VzondaInicio.dat para escrita, o que limpará seu conteúdo
-    FILE *arquivo = fopen("VzondaInicio.dat", "wb");
+void LimparArquivo(const char *nomeArquivo) {
+    // Abrir o arquivo para escrita, o que limpará seu conteúdo
+    FILE *arquivo = fopen(nomeArquivo, "wb");
     if (arquivo == NULL) {
-        printf("Erro ao abrir o arquivo VzondaInicio.dat para limpeza.\n");
+        printf("Erro ao abrir o arquivo %s para limpeza.\n", nomeArquivo);
         return;
     }
     fclose(arquivo);
@@ -515,15 +549,39 @@ void ExibirHistoricoFinanceiro() {
     // Exibir o dia com mais vendas
     printf("Dia com mais vendas: %s\n", diaMaisVendas);
     system("pause");
-
     // Fechar o arquivo
     fclose(historicoFile);
+
+    //sistema de limpeza Arquivo
+    printf("\nDeseja excluir os registros do historico financeiro? (S/N): ");
+    char opcao;
+    scanf(" %c", &opcao);
+    LimparBuffer();
+    if (toupper(opcao) == 'S') {
+        // Chamar a função para limpar o arquivo HistoricoFinanceiroZonda.dat
+        LimparArquivo("HistoricoFinanceiroZonda.dat");
+        printf("Registros do historico financeiro Deletados com sucesso.\n");
+    }
 }
 
-/*
-  //Opção manual
-       printf("Qual a data? (DD/MM/AAAA): ");
-       scanf(" %[^\n]s", VZonda[Quant].Data);
-       LimparBuffer();
-    *
-    * */
+void VisualizarRegistrosServicos() {
+    FILE *registrosFile = fopen("RegistrosServicos.dat", "rb");
+    if (registrosFile == NULL) {
+        printf("Erro ao abrir o arquivo RegistrosServicos.dat.\n");
+        return;
+    }
+
+    TpRegMoto servico;
+    printf("\n\n >>> Registros de Servicos <<< \n\n");
+    while (fread(&servico, sizeof(TpRegMoto), 1, registrosFile) == 1) {
+        printf("\n Cliente: %s", servico.Nome);
+        printf("\n Modelo: %s", servico.Modelo);
+        printf("\n Placa: %s", servico.Placa);
+        printf("\n Defeito: %s", servico.Defeito);
+        printf("\n Status: %c", servico.Status);
+        printf("\n Preco: %.2f", servico.Preco);
+        printf("\n --------------------- \n\n");
+    }
+    system("pause");
+    fclose(registrosFile);
+}
